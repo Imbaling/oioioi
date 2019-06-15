@@ -549,3 +549,14 @@ List of changes since the *CONFIG_VERSION* numbering was introduced:
 	Move all middlewares from MIDDLEWARE_CLASSES to MIDDLEWARE in settings.py.
 	Simply rename MIDDLEWARE_CLASSES settings variable to MIDDLEWARE.
 
+#. * Added option to set readonly mode on all contests created by regular users.::
+
+	Add the following lines at the end of your settings.py file:
+
+	# When this option is set all contests that were created by regular users will
+	# be accessible only in a readonly way. This means no further submissions nor
+	# problem updates, etc. will be possible. Additionally regular users will lose
+	# option to create new contests, but they will keep access to the old ones.
+	# The above operation is fully reversible;
+	# if you want to reverse it simply disable this option.
+	ARCHIVE_CONTESTS_FOR_REGULAR_USERS = True

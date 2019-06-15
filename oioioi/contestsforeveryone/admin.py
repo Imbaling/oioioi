@@ -10,3 +10,8 @@ if 'oioioi.simpleui' not in settings.INSTALLED_APPS:
         lambda request: reverse('oioioiadmin:contests_contest_add'),
         lambda request: is_regular_user(request.user),
         order=10)
+else:
+    personal_menu_registry.register('user_dashboard', _("Contests"),
+                                    lambda request: reverse('simpleui_user_dashboard'),
+                                    lambda request: is_regular_user(request.user),
+                                    order=5)
