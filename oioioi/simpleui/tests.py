@@ -13,6 +13,15 @@ from oioioi.problems.models import Tag, TagThrough
 from oioioi.programs.models import Test
 from oioioi.questions.models import Message
 
+def make_user_contest_admin(user, contest):
+    cp = ContestPermission()
+    cp.user = user
+    cp.permission = 'contests.contest_admin'
+    cp.contest = contest
+    cp.save()
+
+    contest.refresh_from_db()
+
 def change_contest_type():
     c = Contest.objects.get(id='c')
     c.controller_name = \
@@ -20,11 +29,7 @@ def change_contest_type():
     c.save()
 
     user = User.objects.get(username='test_user')
-    cp = ContestPermission()
-    cp.user = user
-    cp.permission = 'contests.contest_admin'
-    cp.contest = c
-    cp.save()
+    make_user_contest_admin(user, c)
 
     return c
 
@@ -42,7 +47,7 @@ class TestContestDashboard(TestCase):
 
         self.assertTrue(self.client.login(username='test_user'))
         self.client.get('/c/c/')
-        url = reverse('teacher_contest_dashboard')
+        url = reverse('simpleui_contest_dashboard')
 
         response = self.client.get(url)
         content = response.content.decode('utf-8')
@@ -73,10 +78,22 @@ class TestContestDashboard(TestCase):
     def test_contest_dashboard_lacking_permissions(self):
         self.assertTrue(self.client.login(username='test_user'))
         self.client.get('/c/c/')
-        url = reverse('teacher_contest_dashboard')
+        url = reverse('simpleui_contest_dashboard')
 
         response = self.client.get(url)
         self.assertEqual(response.status_code, 403)
+
+    def test_regular_user_contest_dashboard_permissions(self):
+        user = User.objects.get(username='test_user3')
+        c = Contest.objects.get(id='c')
+        make_user_contest_admin(user, c)
+
+        self.assertTrue(self.client.login(username='test_user3'))
+        self.client.get('/c/c/')
+        url = reverse('simpleui_contest_dashboard')
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
 
     def test_contest_dashboard_no_rounds(self):
         c = change_contest_type()
@@ -87,7 +104,7 @@ class TestContestDashboard(TestCase):
 
         self.assertTrue(self.client.login(username='test_user'))
         self.client.get('/c/c/')
-        url = reverse('teacher_contest_dashboard')
+        url = reverse('simpleui_contest_dashboard')
 
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -96,17 +113,19 @@ class TestContestDashboard(TestCase):
                             '<p>There are no rounds in this contest.</p>')
 
 
-class TestTeacherDashboard(TestCase):
+class TestUserDashboard(TestCase):
     fixtures = ['test_users', 'teachers', 'test_contest', 'test_full_package',
                 'test_problem_instance', 'test_messages', 'test_templates',
                 'test_submission']
     compile_flags = re.M | re.S
 
-    def test_teacher_dashboard(self):
-        c = change_contest_type()
+    def test_user_dashboard(self):
+        user = User.objects.get(username='test_user3')
+        c = Contest.objects.get(id='c')
+        make_user_contest_admin(user, c)
 
-        self.assertTrue(self.client.login(username='test_user'))
-        url = reverse('teacher_dashboard')
+        self.assertTrue(self.client.login(username='test_user3'))
+        url = reverse('simpleui_user_dashboard')
         response = self.client.get(url)
         content = response.content.decode('utf-8')
 
@@ -121,20 +140,42 @@ class TestTeacherDashboard(TestCase):
         self.assertContains(response, '0 questions')
         self.assertContains(response, '1 round')
         self.assertContains(response, '1 problem')
-        self.assertContains(response, '0 users')
 
-        self.assertContains(response, 'Teacher dashboard</h1>')
+        self.assertContains(response, 'User dashboard</h1>')
 
-    def test_teacher_dashboard_empty(self):
+        # WIP TODO Przeniesc do teachers/tests/py
+        # c = change_contest_type()
+        #
+        # self.assertTrue(self.client.login(username='test_user'))
+        # url = reverse('simpleui_user_dashboard')
+        # response = self.client.get(url)
+        # content = response.content.decode('utf-8')
+        #
+        # self.assertEqual(response.status_code, 200)
+        #
+        # regex = '.*">' + c.name + '</a>.*'
+        # regex = re.compile(regex, self.compile_flags)
+        # self.assertTrue(regex.match(content))
+        #
+        # self.assertContains(response, '0 submissions')
+        # self.assertContains(response, '1 submission')
+        # self.assertContains(response, '0 questions')
+        # self.assertContains(response, '1 round')
+        # self.assertContains(response, '1 problem')
+        # self.assertContains(response, '0 users')
+        #
+        # self.assertContains(response, 'Teacher dashboard</h1>')
+
+    def test_user_dashboard_empty(self):
         self.assertTrue(self.client.login(username='test_user'))
-        url = reverse('teacher_dashboard')
+        url = reverse('simpleui_user_dashboard')
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response,
-                            'There are no teacher contests to display.')
+                            'There are no contests to display.')
 
-    def test_teacher_dashboard_full(self):
+    def test_user_dashboard_full(self):
         user = User.objects.get(username='test_user')
         for i in range(10):
             c = Contest()
@@ -151,7 +192,7 @@ class TestTeacherDashboard(TestCase):
             cp.save()
 
         self.assertTrue(self.client.login(username='test_user'))
-        url = reverse('teacher_dashboard')
+        url = reverse('simpleui_user_dashboard')
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
@@ -261,7 +302,7 @@ class TestProblemInstanceSettings(TestCase):
         form_data['form-3-time_limit'] = '666'
 
         self.client.post(
-                reverse('problem_settings',
+                reverse('simpleui_problem_settings',
                         kwargs={'problem_instance_id': str(pi.id)}),
                 form_data, follow=True)
 
@@ -275,7 +316,7 @@ class TestProblemInstanceSettings(TestCase):
         pi = ProblemInstance.objects.filter(contest=c)[0]
 
         response = self.client.post(
-                reverse('problem_settings',
+                reverse('simpleui_problem_settings',
                         kwargs={'problem_instance_id': str(pi.id)}),
                 self.form_data, follow=True)
         self.assertContains(response,
@@ -288,7 +329,7 @@ class TestProblemInstanceSettings(TestCase):
         pi = ProblemInstance.objects.filter(contest=c)[0]
 
         response = self.client.post(
-                reverse('problem_settings',
+                reverse('simpleui_problem_settings',
                         kwargs={'problem_instance_id': str(pi.id)}),
                 self.form_data, follow=True)
         self.assertContains(response,
@@ -304,7 +345,7 @@ class TestProblemInstanceSettings(TestCase):
         self.assertEqual(TagThrough.objects.filter(problem=p).count(), 1)
 
         response = self.client.post(
-                reverse('problem_settings',
+                reverse('simpleui_problem_settings',
                         kwargs={'problem_instance_id': str(pi.id)}),
                         form_data, follow=True)
 
@@ -323,7 +364,7 @@ class TestProblemInstanceSettings(TestCase):
         self.assertFalse(Tag.objects.filter(name="foobar").exists())
 
         response = self.client.post(
-                reverse('problem_settings',
+                reverse('simpleui_problem_settings',
                         kwargs={'problem_instance_id': str(pi.id)}),
                         form_data, follow=True)
 
@@ -344,7 +385,7 @@ class TestProblemInstanceSettings(TestCase):
         self.assertFalse(Tag.objects.filter(name="foobar").exists())
 
         response = self.client.post(
-                reverse('problem_settings',
+                reverse('simpleui_problem_settings',
                         kwargs={'problem_instance_id': str(pi.id)}),
                         form_data, follow=True)
 
@@ -451,7 +492,7 @@ class TestProblemInstanceValidation(TestCase):
         c = self.login(False)
         pi = ProblemInstance.objects.filter(contest=c)[0]
         response = self.client.post(
-            reverse('problem_settings',
+            reverse('simpleui_problem_settings',
                     kwargs={'problem_instance_id': str(pi.id)}),
             self.form_data, follow=True)
         self.assertContains(response,

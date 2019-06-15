@@ -2,10 +2,13 @@
 
 <div class="contest_box">
   <div class="contest_header">
-    <h2><a href="{% url 'teacher_contest_dashboard' contest_id=contest.id %}">{{contest.name}}</a></h2>
+    <h2><a href="{{ contest.dashboard_url }}">{{contest.name}}</a></h2>
     <a class="settings" href="{% url 'oioioiadmin:contests_contest_change' contest.id %}">
       <span class="glyphicon glyphicon-cog"></span> {% trans "Settings" %}
     </a>
+  </div>
+  <div class="contest_type text-center">
+      {{ contest.contest_controller.description }}
   </div>
   <div class="clear"></div>
   <div class="contest_inner_wrapper">
@@ -44,13 +47,15 @@
               {{ count }} problems
           {% endblocktrans %}
       </div>
-      <div>
-          {% blocktrans count count=contest.user_count %}
-              {{ count }} user
-          {% plural %}
-              {{ count }} users
-          {% endblocktrans %}
-      </div>
+      {% if not public_contest %}
+          <div>
+              {% blocktrans count count=contest.user_count %}
+                  {{ count }} user
+              {% plural %}
+                  {{ count }} users
+              {% endblocktrans %}
+          </div>
+      {% endif %}
       <div>
           {% blocktrans count count=contest.submission_count %}
               {{ count }} submission
@@ -59,6 +64,8 @@
           {% endblocktrans %}
       </div>
     </div>
-    <div class="contest_graph" id="container_{{contest.id}}" data-max_score="{{contest.max_score}}" data-scores="{{contest.scores}}"></div>
+    {% if not public_contest %}
+        <div class="contest_graph" id="container_{{contest.id}}" data-max_score="{{contest.max_score}}" data-scores="{{contest.scores}}"></div>
+    {% endif %}
   </div>
 </div>
